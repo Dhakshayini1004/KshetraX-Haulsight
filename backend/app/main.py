@@ -216,6 +216,12 @@ def create_app() -> FastAPI:
     async def get_current_config():
         return get_config()
 
+    @_APP.get("/api/v1/scenario/status")
+    async def scenario_status():
+        """Return the currently active scenario (restores header banner on WS reconnect)."""
+        name = vehicle_simulator.get_scenario()
+        return {"name": name, "active": bool(name)}
+
     @_APP.post("/api/v1/scenario/{scenario_name}")
     async def run_scenario(scenario_name: str):
         from .simulator.scenarios import (
@@ -241,11 +247,17 @@ def create_app() -> FastAPI:
             # AI scenarios
             "fog": scenario_ai_fog,
             "dense_fog": scenario_ai_fog,
+            "scenario_ai_fog": scenario_ai_fog,
             "normal_visibility": scenario_ai_visibility,
+            "scenario_ai_visibility": scenario_ai_visibility,
             "radar_false_positive": scenario_ai_radar_false_positive,
+            "scenario_ai_radar_false_positive": scenario_ai_radar_false_positive,
             "radar_vehicle": scenario_ai_radar_vehicle,
+            "scenario_ai_radar_vehicle": scenario_ai_radar_vehicle,
             "hotspot": scenario_ai_hotspot,
+            "scenario_ai_hotspot": scenario_ai_hotspot,
             "production": scenario_ai_production,
+            "scenario_ai_production": scenario_ai_production,
         }
         fn = scenarios.get(scenario_name)
         if not fn:

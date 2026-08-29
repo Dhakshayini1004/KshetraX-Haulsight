@@ -54,6 +54,9 @@ class VehicleSimulator:
         self._vehicle_progress: dict[str, dict] = {}
         self._sequence_counters: dict[str, int] = {}
         self._active_scenario: str | None = None
+        # Per-process unique prefix so telemetry message_ids never collide with
+        # stale rows from a prior run (which would be rejected as "duplicate").
+        self._run_id = f"{int(__import__('time').time() * 1000)}"
 
     def _init_vehicle(self, vid: str, route_cfg: dict) -> None:
         nodes = route_cfg["nodes"]
@@ -168,7 +171,7 @@ class VehicleSimulator:
                     speed=speed,
                     heading=heading,
                     gps_quality=gps_quality,
-                    message_id=f"SIM-{vid}-{self._sequence_counters[vid]}",
+                    message_id=f"SIM-{self._run_id}-{vid}-{self._sequence_counters[vid]}",
                     sequence_number=self._sequence_counters[vid],
                     timestamp=datetime.utcnow(),
                 )

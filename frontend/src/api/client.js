@@ -44,6 +44,11 @@ export async function runScenario(name) {
   return res.json();
 }
 
+export async function fetchScenarioStatus() {
+  const res = await fetch(`${API_BASE}/api/v1/scenario/status`);
+  return res.json();
+}
+
 export async function fetchVisibility() {
   const res = await fetch(`${API_BASE}/api/v1/ai/visibility`);
   return res.json();

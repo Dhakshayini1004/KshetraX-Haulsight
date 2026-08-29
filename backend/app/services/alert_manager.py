@@ -15,6 +15,21 @@ _debounce_counters: dict[frozenset, int] = {}
 # Resolution counters: key = alert_id -> consecutive safe ticks
 _resolution_counters: dict[str, int] = {}
 
+# Explicit risk ordering. RiskLevel is a str,Enum so `.value` is the string,
+# NOT an int; string comparison would be alphabetically wrong (e.g.
+# "CRITICAL" > "WARNING" is False). Use this rank for severity escalation.
+_RISK_RANK = {
+    "SAFE": 0,
+    "CAUTION": 1,
+    "WARNING": 2,
+    "CRITICAL": 3,
+}
+
+
+def _rank(level) -> int:
+    level = level.value if hasattr(level, "value") else level
+    return _RISK_RANK.get(level, 0)
+
 
 def _make_alert_key(vehicle_ids: list[str]) -> frozenset:
     return frozenset(sorted(vehicle_ids))
@@ -42,7 +57,7 @@ async def process_risk_results(risk_results: list[dict[str, Any]]) -> list[dict[
                 existing = _find_active_alert_for_key(key)
                 if existing:
                     # Update severity if escalated
-                    if RiskLevel[risk_level].value > existing.severity.value:
+                    if _rank(risk_level) > _rank(existing.severity):
                         old_sev = existing.severity
                         existing.severity = RiskLevel[risk_level]
                         existing.reason = result["reason"]
@@ -139,6 +154,18 @@ async def get_alert_history(limit: int = 50) -> list[dict]:
         }
         for r in rows
     ]
+
+
+def reset_alerts() -> None:
+    """Clear in-memory active alerts and debounce/resolution counters.
+
+    Used by Reset so a fresh demo run starts from a clean alert state without
+    requiring a browser reload or server restart. Historical alert rows in the
+    DB are intentionally preserved for the audit trail.
+    """
+    _active_alerts.clear()
+    _debounce_counters.clear()
+    _resolution_counters.clear()
 
 
 async def acknowledge_alert(alert_id: str) -> bool:

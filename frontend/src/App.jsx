@@ -4,7 +4,7 @@ import { useVehicleStore } from './stores/vehicleStore';
 import { useAlertStore } from './stores/alertStore';
 import { useSystemStore } from './stores/systemStore';
 import { useAIStore } from './stores/aiStore';
-import { fetchRoadGraph, fetchBeacons, fetchVisibility, fetchAIHotspots, fetchProduction, fetchRadarAI } from './api/client';
+import { fetchRoadGraph, fetchVehicles, fetchActiveAlerts, fetchHealth, fetchBeacons, fetchVisibility, fetchAIHotspots, fetchProduction, fetchRadarAI, fetchScenarioStatus } from './api/client';
 import Header from './components/layout/Header';
 import MainLayout from './components/layout/MainLayout';
 
@@ -26,6 +26,21 @@ export default function App() {
 
   useEffect(() => {
     connectWebSocket();
+
+    // Resync all state from REST on (re)connect. One-shot WS events such as
+    // `scenario` can be missed if the socket drops/reconnects at that moment,
+    // so every connect we re-pull current state to keep the UI in sync.
+    const resync = () => {
+      fetchVehicles().then(setVehicles).catch(console.error);
+      fetchActiveAlerts().then(setActiveAlerts).catch(console.error);
+      fetchHealth().then(setHealth).catch(console.error);
+      fetchBeacons().then(setRadarBeacons).catch(console.error);
+      fetchVisibility().then(setVisibility).catch(console.error);
+      fetchAIHotspots().then(setHotspots).catch(console.error);
+      fetchProduction().then(setProduction).catch(console.error);
+      fetchRadarAI().then(setRadarClassifications).catch(console.error);
+      fetchScenarioStatus().then((s) => setScenario({ name: s.name })).catch(console.error);
+    };
 
     const unsub = onMessage((msg) => {
       switch (msg.type) {
@@ -71,6 +86,7 @@ export default function App() {
           break;
         case 'ws_connected':
           setWsConnected(true);
+          resync();
           break;
         case 'ws_disconnected':
           setWsConnected(false);
@@ -78,11 +94,8 @@ export default function App() {
       }
     });
 
-    fetchBeacons().then(setRadarBeacons).catch(console.error);
-    fetchVisibility().then(setVisibility).catch(console.error);
-    fetchAIHotspots().then(setHotspots).catch(console.error);
-    fetchProduction().then(setProduction).catch(console.error);
-    fetchRadarAI().then(setRadarClassifications).catch(console.error);
+    // Initial sync on load
+    resync();
 
     return () => {
       unsub();

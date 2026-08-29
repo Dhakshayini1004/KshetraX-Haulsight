@@ -45,7 +45,10 @@ class EnvironmentSimulator:
     """
 
     def __init__(self) -> None:
-        self._fog_override: str | None = None
+        # DEMO: normal operation starts CLEAR so the Fog intelligence button
+        # produces an obvious, visible contrast. (Natural diurnal drift is
+        # available via set_fog_profile(None) but is not the default.)
+        self._fog_override: str | None = "NONE"
 
     def set_fog_profile(self, severity: str | None) -> None:
         self._fog_override = severity
@@ -53,12 +56,17 @@ class EnvironmentSimulator:
     def sample(self) -> dict[str, Any]:
         hour = datetime.utcnow().hour + datetime.utcnow().minute / 60.0
 
-        if self._fog_override:
+        if self._fog_override and self._fog_override != "NONE":
             base = _FOG_PARAMS[self._fog_override]
             humidity = _rng.uniform(base["hum"][0], base["hum"][1])
             temperature = _rng.uniform(base["temp"][0], base["temp"][1])
             particulate = _rng.uniform(base["pm"][0], base["pm"][1])
             ground_visibility = _rng.uniform(base["vis"][0], base["vis"][1])
+        elif self._fog_override == "NONE":
+            humidity = _rng.uniform(30, 50)
+            temperature = _rng.uniform(24, 32)
+            particulate = _rng.uniform(15, 40)
+            ground_visibility = _rng.uniform(800, 900)
         else:
             # Normal diurnal drift over a 24h cycle + random weather
             diurnal = 0.3 - 0.3 * math.exp(-((hour - 6) ** 2) / 6.0)

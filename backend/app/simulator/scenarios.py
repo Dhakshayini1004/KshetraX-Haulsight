@@ -12,60 +12,48 @@ from ..models import GpsQuality
 
 
 async def scenario_1_normal_operation():
-    """Scenario 1: Two vehicles approach Blind Corner Alpha from opposite directions.
-    VH1027 approaching N3 from N2 side, VH1031 approaching N3 from N4 side.
-    Risk escalates: SAFE → CAUTION → WARNING → CRITICAL."""
-    print("[scenario] Running Scenario 1: Blind corner collision course")
+    """Scenario 1: Two trucks approach Blind Corner Alpha (SEG_N2_N3) on the
+    same haul segment. A persistent driver step-wise closes the along-segment
+    gap so the REAL risk engine escalates SAFE → CAUTION → WARNING → CRITICAL,
+    producing a single lifecycle alert (CREATED/ACTIVE/ACKNOWLEDGED/RESOLVED).
+    No teleporting: vehicles always stay on the road graph."""
+    print("[scenario] Running Scenario 1: Blind corner risk escalation")
+    from .scenario_driver import run_scenario_1, stop_driver
 
-    vehicle_simulator.set_scenario("scenario_1")
+    # Stop any prior driver (no duplicate loops) then start this one.
+    await stop_driver()
 
-    # SCENARIO: Two dumpers on the same haul road approaching Blind Corner Alpha (N3).
-    # VH1027 is behind (near N2) and faster (25 km/h).
-    # VH1052 is ahead (near N3) and slower (15 km/h).
-    # VH1027 is catching up → collision risk as they approach the blind corner.
-
-    # Both on SEG_N2_N3 (blind corner segment, ~250m long):
-    # VH1027 at t=0.45, VH1052 at t=0.55 → ~25m apart
-    # VH1027 (25km/h) catching up to VH1052 (15km/h) → TTC ~6s → WARNING/CRITICAL
-    vehicle_simulator.reposition_on_segment("VH1027", "SEG_N2_N3", t=0.45)
-    vehicle_simulator.set_gps_quality("VH1027", GpsQuality.GOOD)
-
-    vehicle_simulator.reposition_on_segment("VH1052", "SEG_N2_N3", t=0.55)
-    vehicle_simulator.set_gps_quality("VH1052", GpsQuality.GOOD)
-
-    # Move other vehicles to different roads so they don't interfere
-    vehicle_simulator.reposition_on_segment("VH1031", "SEG_N9_N10", t=0.5)
-    vehicle_simulator.reposition_on_segment("VH1045", "SEG_N7_N12", t=0.5)
-
-    # Pause all vehicles so they stay in position for risk evaluation
-    # The risk engine will see them close on the same blind-corner segment
-    for vid in VEHICLE_ROUTES:
-        vehicle_simulator.pause_vehicle(vid)
-
-    # Resume all vehicles
-    for vid in VEHICLE_ROUTES:
-        vehicle_simulator.resume_vehicle(vid)
+    from ..services.alert_manager import reset_alerts
+    reset_alerts()
 
     await broadcast({
         "type": "scenario",
         "data": {
             "name": "scenario_1",
             "title": "Blind Corner Collision Course",
-            "description": "VH1027 and VH1052 approaching Blind Corner Alpha from same segment — risk escalation",
+            "description": "VH1027 and VH1052 approaching Blind Corner Alpha on the same segment — risk escalation SAFE→CAUTION→WARNING→CRITICAL",
             "status": "active",
         },
     })
 
+    await run_scenario_1()
+
 
 async def scenario_2_network_failure():
-    """Scenario 2: Gateway/network failure.
-    Two vehicles stop transmitting. Dashboard shows degraded state.
-    Radar beacons continue working."""
+    """Scenario 2: Gateway/network failure (S2).
+    The gateway/WebSocket connection is DEGRADED while radar beacons stay
+    ONLINE and can still raise a local warning. Visibility is INDEPENDENT of
+    network state and is left unchanged."""
     print("[scenario] Running Scenario 2: Network gateway failure")
+
+    from .scenario_driver import stop_driver
+    from ..services.alert_manager import reset_alerts
+    await stop_driver()
+    reset_alerts()
 
     vehicle_simulator.set_scenario("scenario_2")
 
-    # Suppress two vehicles — no telemetry sent at all → STALE → OFFLINE
+    # Suppress two vehicles — no telemetry at all → STALE → OFFLINE via stale_detector
     vehicle_simulator.suppress_vehicle("VH1027")
     vehicle_simulator.suppress_vehicle("VH1045")
 
@@ -88,15 +76,19 @@ async def scenario_2_network_failure():
 
 
 async def scenario_3_non_equipped_vehicle():
-    """Scenario 3: Non-equipped vehicle detected by radar at blind corner.
-    Radar detects an unknown vehicle, triggers local warning."""
+    """Scenario 3: Non-equipped (UNKNOWN) vehicle detected by radar at a blind
+    corner. Radar-only detection — no HaulSight unit, so no fake vehicle ID.
+    The AI classifier reports VEHICLE and a local radar warning is emitted."""
     print("[scenario] Running Scenario 3: Non-equipped vehicle detection")
+
+    from .scenario_driver import stop_driver
+    await stop_driver()
 
     vehicle_simulator.set_scenario("scenario_3")
 
     # Trigger a radar detection for an unknown vehicle
     from ..models import RadarDetection
-    from ..services import radar_service
+    from ..services import radar_service, radar_ai
     import uuid
 
     detection = RadarDetection(
@@ -110,14 +102,29 @@ async def scenario_3_non_equipped_vehicle():
 
     result = await radar_service.record_detection(detection)
 
+    # AI classify the detected object so the panel shows UNKNOWN/NON-EQUIPPED.
+    ai_result = await radar_ai.record_classification({
+        "range_m": 35.0,
+        "relative_speed_mps": 6.0,
+        "reflectivity": 0.9,
+        "size": 5.8,
+        "persistence": 0.9,
+    }, ground_truth="VEHICLE")
+
+    await broadcast({
+        "type": "radar_ai",
+        "data": ai_result,
+    })
+
     await broadcast({
         "type": "scenario",
         "data": {
             "name": "scenario_3",
             "title": "Non-Equipped Vehicle Detected",
-            "description": "Unknown vehicle detected by RADAR_ALPHA at Blind Corner Alpha — no GPS unit, radar-only detection",
+            "description": "UNKNOWN vehicle detected by RADAR_ALPHA at Blind Corner Alpha — no GPS unit, radar-only detection",
             "status": "active",
             "detection": result,
+            "classification": ai_result,
         },
     })
 
@@ -125,8 +132,10 @@ async def scenario_3_non_equipped_vehicle():
         "type": "radar_warning",
         "data": {
             "beacon_id": "RADAR_ALPHA",
-            "message": f"⚠ LOCAL WARNING: Non-equipped vehicle detected {detection.range_meters:.0f}m from Blind Corner Alpha",
+            "message": f"LOCAL WARNING: Non-equipped vehicle detected {detection.range_meters:.0f}m from Blind Corner Alpha",
             "range": detection.range_meters,
+            "object_class": ai_result["object_class"],
+            "confidence": ai_result["confidence"],
         },
     })
 
@@ -311,13 +320,17 @@ async def scenario_ai_production():
 
 
 async def reset_all():
-    """Reset all scenarios — resume normal operation."""
+    """Reset all scenarios — restore normal operation without a browser reload."""
     print("[scenario] Resetting all scenarios")
+
+    from .scenario_driver import stop_driver
+    from ..services.alert_manager import reset_alerts
+    await stop_driver()
 
     vehicle_simulator.set_scenario(None)
 
     from ..services import visibility_ai
-    visibility_ai.set_fog_profile(None)
+    visibility_ai.set_fog_profile("NONE")
     try:
         radar_simulator.force_classification(None)
     except Exception:
@@ -333,6 +346,9 @@ async def reset_all():
     for v in all_vehicles:
         if v.vehicle_id.startswith("RADAR-"):
             await vehicle_store.remove(v.vehicle_id)
+
+    # Clear in-memory alert state so the next run starts clean.
+    reset_alerts()
 
     await visibility_ai.update_visibility()
 
