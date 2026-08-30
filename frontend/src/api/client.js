@@ -1,4 +1,4 @@
-const API_BASE = '';
+const API_BASE = ''; //Priyansha paste the render backend deployed link in the inverted commas;
 
 export async function fetchVehicles() {
   const res = await fetch(`${API_BASE}/api/v1/vehicles`);

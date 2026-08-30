@@ -2,7 +2,7 @@ let ws = null;
 let reconnectTimer = null;
 let listeners = [];
 
-const WS_URL = `ws://${window.location.host}/ws`;
+const WS_URL = `ws://${window.location.host}/ws`; //Priyansha paste the render backend deployed link in the inverted commas;
 
 export function connectWebSocket() {
   if (ws && ws.readyState === WebSocket.OPEN) return;
