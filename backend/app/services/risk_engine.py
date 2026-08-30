@@ -8,6 +8,20 @@ from ..models import VehicleStateRecord, RiskLevel, VehicleState
 from ..state import vehicle_store
 from ..services.road_graph import road_graph, haversine, bearing
 
+# Explicit risk ordering. RiskLevel is a str,Enum so alphabetical comparison of
+# `.value` is wrong; use a rank so "worst case wins" works for highlighter.
+_RISK_RANK = {
+    "SAFE": 0,
+    "CAUTION": 1,
+    "WARNING": 2,
+    "CRITICAL": 3,
+}
+
+
+def _risk_rank(level) -> int:
+    level = level.value if hasattr(level, "value") else level
+    return _RISK_RANK.get(level, 0)
+
 
 def _closing_speed(a: VehicleStateRecord, b: VehicleStateRecord) -> float:
     """Calculate closing speed in m/s between two vehicles.
@@ -147,9 +161,18 @@ def evaluate_pair(a: VehicleStateRecord, b: VehicleStateRecord) -> tuple[RiskLev
 
 
 async def evaluate_all_pairs() -> list[dict[str, Any]]:
-    """Evaluate all vehicle pairs and return risk results."""
+    """Evaluate all vehicle pairs and return risk results.
+
+    Per-vehicle risk is set to the WORST level across every pair the vehicle
+    participates in. Previously each pair overwrote the vehicle's risk
+    (last-pair-wins), so a vehicle that was CRITICAL with one partner could be
+    reset to SAFE by a later, individually-safe pair — leaving the map with
+    only one of the two involved vehicles highlighted.
+    """
     vehicles = await vehicle_store.get_all()
     results = []
+    # vehicle_id -> (worst_risk_level, worst_reason)
+    worst: dict[str, tuple[RiskLevel, str]] = {}
 
     for i in range(len(vehicles)):
         for j in range(i + 1, len(vehicles)):
@@ -163,6 +186,11 @@ async def evaluate_all_pairs() -> list[dict[str, Any]]:
 
             risk, reason = evaluate_pair(a, b)
 
+            for vid in (a.vehicle_id, b.vehicle_id):
+                current = worst.get(vid)
+                if current is None or _risk_rank(risk) > _risk_rank(current[0]):
+                    worst[vid] = (risk, reason if risk != RiskLevel.SAFE else "")
+
             if risk != RiskLevel.SAFE:
                 results.append({
                     "vehicle_a": a.vehicle_id,
@@ -171,18 +199,9 @@ async def evaluate_all_pairs() -> list[dict[str, Any]]:
                     "reason": reason,
                 })
 
-            # Update individual vehicle risk to worst-case
-            await vehicle_store.update_risk(a.vehicle_id, risk, reason)
-            await vehicle_store.update_risk(b.vehicle_id, risk, reason)
-
-    # Mark vehicles not in any conflict as SAFE
-    involved = set()
-    for r in results:
-        involved.add(r["vehicle_a"])
-        involved.add(r["vehicle_b"])
-
+    # Apply worst-case risk to every tracked vehicle (SAFE if not involved)
     for v in vehicles:
-        if v.vehicle_id not in involved:
-            await vehicle_store.update_risk(v.vehicle_id, RiskLevel.SAFE, "")
+        level, reason = worst.get(v.vehicle_id, (RiskLevel.SAFE, ""))
+        await vehicle_store.update_risk(v.vehicle_id, level, reason)
 
     return results

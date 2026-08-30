@@ -10,8 +10,8 @@
   --color-orange: #E76F2E;
   --color-orange-dark: #C85A1F;
   --color-safe: #2FA4D7;
-  --color-caution: #E76F2E;
-  --color-warning: #E05D26;
+  --color-caution: #F59E0B;
+  --color-warning: #E76F2E;
   --color-critical: #DC2626;
   --color-healthy: #2F9E63;
 }
@@ -128,4 +128,14 @@ body {
 /* Vehicle marker base */
 .vehicle-marker-cicle {
   transition: all 0.35s ease;
+}
+
+/* Critical-risk vehicle halo — subtle expanding/pulsing ring */
+.vehicle-critical-ring {
+  transform-origin: center;
+  animation: vehicle-critical-ring 1.5s ease-in-out infinite;
+}
+@keyframes vehicle-critical-ring {
+  0%, 100% { opacity: 0.85; stroke-width: 3px; }
+  50% { opacity: 0.35; stroke-width: 7px; }
 }

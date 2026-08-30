@@ -11,8 +11,8 @@ export const THEME = {
 
 export const RISK_COLORS = {
   SAFE: '#2FA4D7',
-  CAUTION: '#E76F2E',
-  WARNING: '#E05D26',
+  CAUTION: '#F59E0B',
+  WARNING: '#E76F2E',
   CRITICAL: '#DC2626',
 };
 
