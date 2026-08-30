@@ -52,9 +52,53 @@ def _stopping_time(speed_kmh: float, max_decel: float) -> float:
     return speed_ms / max_decel
 
 
+def _risk_factor(a: VehicleStateRecord, b: VehicleStateRecord, distance: float) -> tuple[float, str, str]:
+    """Adverse-condition factor for a vehicle pair.
+
+    Factor is in (0, 1]: the closer to 0, the more dangerous a given physical
+    distance is treated as (blind-corner segments and low AI-forecast visibility
+    both shrink the effective distance). Returns (factor, blind_reason, vis_note).
+    """
+    config = get_config()
+    factor = 1.0
+    blind_reason = ""
+    vis_note = ""
+
+    if a.current_segment and a.current_segment == b.current_segment:
+        seg = road_graph.get_segment(a.current_segment)
+        if seg and seg.blind_corner:
+            factor = config["blind_corner_threshold_multiplier"]
+            blind_reason = f" on blind-corner segment {seg.segment_id}"
+
+    # AI visibility safety margin: lower visibility -> more conservative, so a
+    # given physical distance counts as closer (effective distance shrinks).
+    try:
+        from . import ai_state
+        vis = ai_state._visibility
+        vis_m = vis.get("estimated_visibility_m", 1000.0)
+        if vis_m < 500:
+            vis_factor = max(0.45, 0.35 + (vis_m / 500.0) * 0.65)
+            factor = min(factor, vis_factor)
+            vis_note = f", low visibility {vis_m:.0f}m (AI)"
+    except Exception:
+        pass
+
+    return factor, blind_reason, vis_note
+
+
 def evaluate_pair(a: VehicleStateRecord, b: VehicleStateRecord) -> tuple[RiskLevel, str]:
     """Evaluate collision risk between two vehicles.
-    Returns (risk_level, reason_string)."""
+
+    Primary trigger is PHYSICAL DISTANCE:
+      effective distance = actual distance x adverse-condition factor
+        > 10m  (dist_warning_meters)  -> NORMAL (SAFE)
+        5-10m  (dist_warning)          -> WARNING
+        3-5m   (dist_high)             -> HIGH RISK (severity CRITICAL on the map)
+        < 3m   (dist_critical)         -> CRITICAL
+    A pair is only escalated when a meaningful approach speed exists
+    (> approach_min_closing_speed_mps), so parked/parallel trucks do not alarm.
+    Returns (risk_level, reason_string).
+    """
     config = get_config()
 
     # Both must be active enough to matter
@@ -66,95 +110,44 @@ def evaluate_pair(a: VehicleStateRecord, b: VehicleStateRecord) -> tuple[RiskLev
     # Distance between vehicles
     distance = haversine(a.latitude, a.longitude, b.latitude, b.longitude)
 
-    # If very far apart, skip
-    if distance > 500:
+    # Efficiency sanity cap — well outside every warning band.
+    if distance > config.get("risk_max_pair_meters", 200.0):
         return RiskLevel.SAFE, ""
 
-    # Check if they're on the same or connected segments
-    same_segment = False
-    connected_segment = False
+    risk_factor, blind_reason, vis_note = _risk_factor(a, b, distance)
+    eff_dist = distance * risk_factor
 
-    if a.current_segment and b.current_segment:
-        if a.current_segment == b.current_segment:
-            same_segment = True
-        else:
-            seg_a = road_graph.get_segment(a.current_segment)
-            seg_b = road_graph.get_segment(b.current_segment)
-            if seg_a and seg_b:
-                shared_nodes = {seg_a.start_node, seg_a.end_node} & {seg_b.start_node, seg_b.end_node}
-                if shared_nodes:
-                    connected_segment = True
-    elif a.current_segment or b.current_segment:
-        # One on segment, one off — still check distance
-        pass
-
-    if not same_segment and not connected_segment and distance > config["dist_caution_meters"]:
-        return RiskLevel.SAFE, ""
-
-    # Closing speed
+    # Closing speed: approach gate, not the primary trigger.
     cs = _closing_speed(a, b)
-
-    # If moving apart, lower risk
-    if cs < -2.0:
+    if cs < -2.0:  # actively moving apart
         return RiskLevel.SAFE, ""
-
-    # Time to conflict
-    if cs > 0.1:
-        ttc = distance / cs
-    else:
-        ttc = float("inf")
-
-    # Determine risk
-    multiplier = 1.0
-    blind_reason = ""
-    if same_segment:
-        seg = road_graph.get_segment(a.current_segment)
-        if seg and seg.blind_corner:
-            multiplier = config["blind_corner_threshold_multiplier"]
-            blind_reason = f" on blind-corner segment {seg.segment_id}"
-
-    # AI visibility safety margin: lower visibility -> more conservative.
-    # Reduces all thresholds, making WARNING/CRITICAL trigger sooner.
-    vis_margin = 1.0
-    vis_note = ""
-    try:
-        from . import ai_state
-        vis = ai_state._visibility
-        vis_m = vis.get("estimated_visibility_m", 1000.0)
-        if vis_m < 500:
-            vis_margin = max(0.45, 0.35 + (vis_m / 500.0) * 0.65)
-            vis_note = f", low visibility {vis_m:.0f}m (AI)"
-    except Exception:
-        pass
-    multiplier = multiplier * vis_margin
+    if cs < config.get("approach_min_closing_speed_mps", 1.0) and eff_dist >= config["dist_critical_meters"]:
+        return RiskLevel.SAFE, ""
 
     risk = RiskLevel.SAFE
     reason = ""
 
-    critical_ttc = config["ttc_critical_seconds"] * multiplier
-    warning_ttc = config["ttc_warning_seconds"] * multiplier
-    caution_ttc = config["ttc_caution_seconds"] * multiplier
-    critical_dist = config["dist_critical_meters"] * multiplier
-    warning_dist = config["dist_warning_meters"] * multiplier
-    caution_dist = config["dist_caution_meters"] * multiplier
+    dist_critical = config["dist_critical_meters"]
+    dist_high = config.get("dist_high_meters", dist_critical * 5 / 3)
+    dist_warning = config["dist_warning_meters"]
 
-    if (ttc < critical_ttc or distance < critical_dist) and cs > 0:
+    if eff_dist < dist_critical:
         risk = RiskLevel.CRITICAL
         reason = (
-            f"Vehicles {a.vehicle_id} and {b.vehicle_id} approaching conflict zone. "
-            f"TTC: {ttc:.1f}s, distance: {distance:.0f}m, closing speed: {cs * 3.6:.0f} km/h{blind_reason}{vis_note}."
+            f"CRITICAL — Vehicles {a.vehicle_id} and {b.vehicle_id} at conflict range: "
+            f"distance {distance:.1f}m (< {dist_critical:.0f}m), closing {cs * 3.6:.0f} km/h{blind_reason}{vis_note}."
         )
-    elif (ttc < warning_ttc or distance < warning_dist) and cs > 0:
+    elif eff_dist < dist_high:
+        risk = RiskLevel.CRITICAL
+        reason = (
+            f"HIGH RISK — Vehicles {a.vehicle_id} and {b.vehicle_id}: "
+            f"distance {distance:.1f}m (3-5m band), closing {cs * 3.6:.0f} km/h{blind_reason}{vis_note}. Immediate braking advised."
+        )
+    elif eff_dist < dist_warning:
         risk = RiskLevel.WARNING
         reason = (
-            f"Vehicles {a.vehicle_id} and {b.vehicle_id} converging. "
-            f"TTC: {ttc:.1f}s, distance: {distance:.0f}m{blind_reason}{vis_note}."
-        )
-    elif (ttc < caution_ttc or distance < caution_dist) and cs > 0:
-        risk = RiskLevel.CAUTION
-        reason = (
-            f"Vehicles {a.vehicle_id} and {b.vehicle_id} in proximity. "
-            f"TTC: {ttc:.1f}s, distance: {distance:.0f}m{blind_reason}{vis_note}."
+            f"WARNING — Vehicles {a.vehicle_id} and {b.vehicle_id}: "
+            f"distance {distance:.1f}m (5-10m band), closing {cs * 3.6:.0f} km/h{blind_reason}{vis_note}. Reduce speed."
         )
 
     return risk, reason

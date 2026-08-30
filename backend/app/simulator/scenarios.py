@@ -14,7 +14,7 @@ from ..models import GpsQuality
 async def scenario_1_normal_operation():
     """Scenario 1: Two trucks approach Blind Corner Alpha (SEG_N2_N3) on the
     same haul segment. A persistent driver step-wise closes the along-segment
-    gap so the REAL risk engine escalates SAFE → CAUTION → WARNING → CRITICAL,
+    gap so the REAL risk engine escalates SAFE → WARNING → HIGH RISK → CRITICAL,
     producing a single lifecycle alert (CREATED/ACTIVE/ACKNOWLEDGED/RESOLVED).
     No teleporting: vehicles always stay on the road graph."""
     print("[scenario] Running Scenario 1: Blind corner risk escalation")
@@ -31,7 +31,7 @@ async def scenario_1_normal_operation():
         "data": {
             "name": "scenario_1",
             "title": "Blind Corner Collision Course",
-            "description": "VH1027 and VH1052 approaching Blind Corner Alpha on the same segment — risk escalation SAFE→CAUTION→WARNING→CRITICAL",
+            "description": "VH1027 and VH1052 approaching Blind Corner Alpha on the same segment — risk escalation SAFE→WARNING→HIGH→CRITICAL",
             "status": "active",
         },
     })
@@ -319,6 +319,29 @@ async def scenario_ai_production():
     })
 
 
+async def scenario_ai_node_health():
+    """AI Scenario: Critical node anomaly — a blind-corner node's temperature
+    sensor reads far outside its normal range and the monitor raises an alert
+    (a direct CRITICAL fault, surfaced after the configured persistence delay)."""
+    from ..services import node_health
+    from ..config import get_config
+    print("[scenario] Running AI Scenario: Critical node health anomaly")
+    vehicle_simulator.set_scenario("scenario_ai_node_health")
+
+    value = float(get_config()["node_health_fault_value"])
+    await node_health.set_override("N3", "temperature_c", value)
+
+    await broadcast({
+        "type": "scenario",
+        "data": {
+            "name": "scenario_ai_node_health",
+            "title": "Critical Node Health (AI)",
+            "description": f"N-03 Blind Corner Alpha sensor abnormal — temperature reading {value:.0f}°C outside normal range",
+            "status": "active",
+        },
+    })
+
+
 async def reset_all():
     """Reset all scenarios — restore normal operation without a browser reload."""
     print("[scenario] Resetting all scenarios")
@@ -333,6 +356,12 @@ async def reset_all():
     visibility_ai.set_fog_profile("NONE")
     try:
         radar_simulator.force_classification(None)
+    except Exception:
+        pass
+
+    from ..services import node_health
+    try:
+        await node_health.clear_overrides()
     except Exception:
         pass
 

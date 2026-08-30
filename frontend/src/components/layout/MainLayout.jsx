@@ -2,7 +2,7 @@ import MineMap from '../map/MineMap';
 import VehicleList from '../panels/VehicleList';
 import AlertPanel from '../panels/AlertPanel';
 import SystemHealth from '../panels/SystemHealth';
-import { RadarAIPanel, ProductionPanel } from '../ai/AIPanels';
+import { RadarAIPanel, ProductionPanel, NodeHealthPanel } from '../ai/AIPanels';
 
 export default function MainLayout() {
   return (
@@ -23,6 +23,7 @@ export default function MainLayout() {
         <AlertPanel />
         <RadarAIPanel />
         <ProductionPanel />
+        <NodeHealthPanel />
       </div>
     </div>
   );

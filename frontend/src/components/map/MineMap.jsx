@@ -1,14 +1,20 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Polyline, CircleMarker, Popup, useMap } from 'react-leaflet';
 import { fetchRoadGraph } from '../../api/client';
 import { useVehicleStore } from '../../stores/vehicleStore';
 import { useSystemStore } from '../../stores/systemStore';
+import { useNodeStore } from '../../stores/nodeStore';
 import VehicleMarker from './VehicleMarker';
 import RadarBeaconMarker from './RadarBeaconMarker';
 import HotspotLayer from './HotspotLayer';
 
 const MINE_CENTER = [22.2540, 85.8360];
 const DEFAULT_ZOOM = 15;
+
+const NODE_HEALTH_COLOR = {
+  WARNING: '#F59E0B',
+  CRITICAL: '#DC2626',
+};
 
 function MapUpdater({ vehicles }) {
   const map = useMap();
@@ -19,10 +25,16 @@ export default function MineMap() {
   const [roadGraph, setRoadGraph] = useState({ nodes: [], segments: [] });
   const vehicles = useVehicleStore((s) => s.vehicles);
   const radarBeacons = useSystemStore((s) => s.radarBeacons);
+  const nodeHealth = useNodeStore((s) => s.nodeHealth);
 
   useEffect(() => {
     fetchRoadGraph().then(setRoadGraph).catch(console.error);
   }, []);
+
+  const nodeStatusById = (nodeId) => {
+    const rec = nodeHealth.find((n) => n.node_id === nodeId);
+    return rec?.status || 'NORMAL';
+  };
 
   const segmentColor = (seg) => {
     if (!seg.is_active) return '#9CA3AF';
@@ -90,26 +102,51 @@ export default function MineMap() {
           );
         })}
 
-      {/* Node markers */}
-      {roadGraph.nodes.map((node) => (
-        <CircleMarker
-          key={node.node_id}
-          center={[node.latitude, node.longitude]}
-          radius={4}
-          pathOptions={{
-            color: node.node_type === 'blind_corner' ? '#E76F2E' : '#3E2C23',
-            fillColor: node.node_type === 'blind_corner' ? '#E76F2E' : '#3E2C23',
-            fillOpacity: 0.8,
-          }}
-        >
-          <Popup>
-            <div className="text-sm">
-              <strong>{node.name || node.node_id}</strong><br />
-              Type: {node.node_type}
-            </div>
-          </Popup>
-        </CircleMarker>
-      ))}
+      {/* Node markers (colored by node health monitor) */}
+      {roadGraph.nodes.map((node) => {
+        const status = nodeStatusById(node.node_id);
+        const healthColor = NODE_HEALTH_COLOR[status];
+        const baseColor = healthColor || (node.node_type === 'blind_corner' ? '#E76F2E' : '#3E2C23');
+        return (
+          <Fragment key={`node-${node.node_id}`}>
+            {status === 'CRITICAL' && (
+              <CircleMarker
+                center={[node.latitude, node.longitude]}
+                radius={10}
+                pathOptions={{
+                  color: '#DC2626',
+                  weight: 2,
+                  fill: false,
+                  opacity: 0.75,
+                  className: 'vehicle-critical-ring',
+                }}
+              />
+            )}
+            <CircleMarker
+              center={[node.latitude, node.longitude]}
+              radius={status === 'CRITICAL' ? 6 : 4}
+              pathOptions={{
+                color: baseColor,
+                fillColor: baseColor,
+                fillOpacity: 0.9,
+                className: status === 'CRITICAL' ? 'vehicle-marker-cicle' : '',
+              }}
+            >
+              <Popup>
+                <div className="text-sm">
+                  <strong>{node.name || node.node_id}</strong><br />
+                  Type: {node.node_type}<br />
+                  {status !== 'NORMAL' && (
+                    <span className={status === 'CRITICAL' ? 'text-critical font-semibold' : 'text-warning font-semibold'}>
+                      Health: {status}
+                    </span>
+                  )}
+                </div>
+              </Popup>
+            </CircleMarker>
+          </Fragment>
+        );
+      })}
 
       {/* Radar beacons */}
       {radarBeacons.map((beacon) => (

@@ -1,10 +1,15 @@
-import { Wifi, Server, Radio, Activity } from 'lucide-react';
+import { Wifi, Server, Radio, Activity, Gauge } from 'lucide-react';
 import { useSystemStore } from '../../stores/systemStore';
+import { useNodeStore } from '../../stores/nodeStore';
 import { VisibilityChip } from '../ai/VisibilityChip';
 
 export default function SystemHealth() {
   const health = useSystemStore((s) => s.health);
   const wsConnected = useSystemStore((s) => s.wsConnected);
+  const nodeHealth = useNodeStore((s) => s.nodeHealth);
+
+  const nodeCritical = nodeHealth.filter((n) => n.status === 'CRITICAL').length;
+  const nodeWarning = nodeHealth.filter((n) => n.status === 'WARNING').length;
 
   const items = [
     {
@@ -25,6 +30,14 @@ export default function SystemHealth() {
       value: health.radar_beacons_online || '0/0',
       Icon: Radio,
       state: 'live',
+    },
+    {
+      label: 'Nodes',
+      value: nodeCritical + nodeWarning > 0
+        ? `${nodeCritical + nodeWarning}/${nodeHealth.length}`
+        : `${nodeHealth.length}`,
+      Icon: Gauge,
+      state: nodeCritical > 0 ? 'critical' : nodeWarning > 0 ? 'degraded' : 'live',
     },
     {
       label: 'WebSocket',

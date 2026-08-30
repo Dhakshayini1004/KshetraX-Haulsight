@@ -4,7 +4,8 @@ import { useVehicleStore } from './stores/vehicleStore';
 import { useAlertStore } from './stores/alertStore';
 import { useSystemStore } from './stores/systemStore';
 import { useAIStore } from './stores/aiStore';
-import { fetchRoadGraph, fetchVehicles, fetchActiveAlerts, fetchHealth, fetchBeacons, fetchVisibility, fetchAIHotspots, fetchProduction, fetchRadarAI, fetchScenarioStatus } from './api/client';
+import { useNodeStore } from './stores/nodeStore';
+import { fetchRoadGraph, fetchVehicles, fetchActiveAlerts, fetchHealth, fetchBeacons, fetchVisibility, fetchAIHotspots, fetchProduction, fetchRadarAI, fetchScenarioStatus, fetchNodeHealth } from './api/client';
 import Header from './components/layout/Header';
 import MainLayout from './components/layout/MainLayout';
 
@@ -23,6 +24,8 @@ export default function App() {
   const setProduction = useAIStore((s) => s.setProduction);
   const addRadarClassification = useAIStore((s) => s.addRadarClassification);
   const setRadarClassifications = useAIStore((s) => s.setRadarClassifications);
+  const setNodeHealth = useNodeStore((s) => s.setHealth);
+  const setNodeAnomaly = useNodeStore((s) => s.setAnomaly);
 
   useEffect(() => {
     connectWebSocket();
@@ -40,6 +43,7 @@ export default function App() {
       fetchProduction().then(setProduction).catch(console.error);
       fetchRadarAI().then(setRadarClassifications).catch(console.error);
       fetchScenarioStatus().then((s) => setScenario({ name: s.name })).catch(console.error);
+      fetchNodeHealth().then(setNodeHealth).catch(console.error);
     };
 
     const unsub = onMessage((msg) => {
@@ -83,6 +87,12 @@ export default function App() {
           break;
         case 'radar_ai':
           addRadarClassification(msg.data);
+          break;
+        case 'node_health':
+          setNodeHealth(msg.data);
+          break;
+        case 'node_anomaly':
+          setNodeAnomaly(msg.data);
           break;
         case 'ws_connected':
           setWsConnected(true);

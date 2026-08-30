@@ -35,6 +35,11 @@ def _make_alert_key(vehicle_ids: list[str]) -> frozenset:
     return frozenset(sorted(vehicle_ids))
 
 
+# An ACKNOWLEDGED alert still counts as "live" for its vehicle pair so an
+# operator acknowledgement never causes a duplicate alert for the same episode.
+_LIVE_STATUSES = (AlertStatus.ACTIVE, AlertStatus.ACKNOWLEDGED)
+
+
 async def process_risk_results(risk_results: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Process risk engine results, create/resolve alerts. Returns alert events for broadcast."""
     config = get_config()
@@ -69,7 +74,10 @@ async def process_risk_results(risk_results: list[dict[str, Any]]) -> list[dict[
                         events.append({"type": "alert_updated", "data": _alert_to_dict(existing)})
                     _resolution_counters.pop(existing.alert_id, None)
                 else:
-                    # Create new alert
+                    # Create new alert (unless we are at the active-alert cap).
+                    if len(_active_alerts) >= int(config.get("max_active_alerts", 20)):
+                        _debounce_counters.pop(key, None)
+                        continue
                     alert_id = f"ALT-{now.strftime('%H%M%S')}-{len(v_ids[0])}-{key.__hash__() & 0xFFFF:04x}"
                     alert = Alert(
                         alert_id=alert_id,
@@ -125,7 +133,7 @@ async def _resolve_alert(alert_id: str, now: datetime, db, events: list, expired
 
 def _find_active_alert_for_key(key: frozenset) -> Alert | None:
     for alert in _active_alerts.values():
-        if _make_alert_key(alert.vehicle_ids) == key and alert.status == AlertStatus.ACTIVE:
+        if _make_alert_key(alert.vehicle_ids) == key and alert.status in _LIVE_STATUSES:
             return alert
     return None
 

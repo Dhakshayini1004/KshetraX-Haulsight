@@ -63,14 +63,16 @@ def _move_pair(lead_t: float, trail_t: float) -> None:
     SEG_N2_N3 is the Blind Corner Alpha haul segment; both vehicles route
     N2 -> N3. Positioning stays on the road graph (no teleporting off-road);
     each stage just re-steps the along-segment parameter, which the real risk
-    engine turns into distance/TTC -> CAUTION/WARNING/CRITICAL.
+    engine turns into distance -> WARNING / HIGH RISK / CRITICAL. The blind-
+    corner factor (0.7) shrinks the effective distance, so a given physical gap
+    reads as more dangerous than the same gap on a straight segment.
     """
     vehicle_simulator.reposition_on_segment("VH1052", "SEG_N2_N3", t=lead_t)
     vehicle_simulator.reposition_on_segment("VH1027", "SEG_N2_N3", t=trail_t)
 
 
 # ──────────────────────────────────────────────────────────────
-# Scenario 1: risk escalation SAFE -> CAUTION -> WARNING -> CRITICAL -> RESOLVE
+# Scenario 1: risk escalation SAFE -> WARNING -> HIGH -> CRITICAL -> RESOLVE
 # ──────────────────────────────────────────────────────────────
 
 async def _drive_scenario_1(stage_seconds: float = 3.0) -> None:
@@ -82,7 +84,7 @@ async def _drive_scenario_1(stage_seconds: float = 3.0) -> None:
     vehicle_simulator.set_gps_quality("VH1027", GpsQuality.GOOD)
     vehicle_simulator.set_gps_quality("VH1052", GpsQuality.GOOD)
 
-    # SAFE: comfortably separated, below any escalation threshold.
+    # SAFE: comfortably separated, below any escalation threshold (~110m gap).
     _move_pair(lead_t=0.72, trail_t=0.30)
     _hold_pair()
     await broadcast({
@@ -92,29 +94,28 @@ async def _drive_scenario_1(stage_seconds: float = 3.0) -> None:
     })
     await asyncio.sleep(stage_seconds)
 
-    # CAUTION: within caution envelope on the blind-corner segment.
-    _move_pair(lead_t=0.62, trail_t=0.40)
-    _hold_pair()
-    await broadcast({
-        "type": "scenario_stage",
-        "data": {"stage": "CAUTION", "scenario": "scenario_1",
-                 "message": "Converging on Blind Corner Alpha — CAUTION"},
-    })
-    await asyncio.sleep(stage_seconds)
-
-    # WARNING: trucks close on the visually-blind corner segment.
-    _move_pair(lead_t=0.62, trail_t=0.51)
+    # WARNING: ~9m physical gap on the blind-corner segment (eff ~6.3m).
+    _move_pair(lead_t=0.62, trail_t=0.586)
     _hold_pair()
     await broadcast({
         "type": "scenario_stage",
         "data": {"stage": "WARNING", "scenario": "scenario_1",
-                 "message": "High closing risk at Blind Corner Alpha — WARNING"},
+                 "message": "Trucks closing to ~9m on blind-corner segment — WARNING"},
     })
     await asyncio.sleep(stage_seconds)
 
-    # CRITICAL: very close, imminent conflict on the visually-blind corner.
-    # gap ~0.045 of SEG_N2_N3 (~12m) sits below dist_critical (20m*0.7 blind).
-    _move_pair(lead_t=0.62, trail_t=0.575)
+    # HIGH RISK: ~5m physical gap (eff ~3.5m) — severity CRITICAL on the map.
+    _move_pair(lead_t=0.62, trail_t=0.601)
+    _hold_pair()
+    await broadcast({
+        "type": "scenario_stage",
+        "data": {"stage": "HIGH", "scenario": "scenario_1",
+                 "message": "Trucks at ~5m on the visually-blind corner — HIGH RISK"},
+    })
+    await asyncio.sleep(stage_seconds)
+
+    # CRITICAL: ~2.4m physical gap on the visually-blind corner — imminent conflict.
+    _move_pair(lead_t=0.62, trail_t=0.611)
     _hold_pair()
     await broadcast({
         "type": "scenario_stage",

@@ -18,7 +18,7 @@ from .api.websocket import broadcast
 from .simulator.vehicle_sim import vehicle_simulator
 from .simulator.radar_sim import radar_simulator
 
-from .api import vehicles, roads, alerts, radar, websocket, ai
+from .api import vehicles, roads, alerts, radar, websocket, ai, nodes
 
 _START_TIME = time.time()
 
@@ -141,10 +141,11 @@ async def lifespan(app: FastAPI):
     radar_task = asyncio.create_task(radar_simulator.start())
 
     # AI background loops
-    from .services import visibility_ai, hotspot_analysis, production_forecast
+    from .services import visibility_ai, hotspot_analysis, production_forecast, node_health
     vis_task = asyncio.create_task(visibility_ai.run_loop(3.0))
     hot_task = asyncio.create_task(hotspot_analysis.run_loop(10.0))
     prod_task = asyncio.create_task(production_forecast.run_loop(5.0))
+    node_task = asyncio.create_task(node_health.run_loop())
 
     print("[haulshight] All systems started")
 
@@ -160,6 +161,7 @@ async def lifespan(app: FastAPI):
     vis_task.cancel()
     hot_task.cancel()
     prod_task.cancel()
+    node_task.cancel()
     await close_db()
     print("[haulshight] Shutdown complete")
 
@@ -188,6 +190,7 @@ def create_app() -> FastAPI:
     _APP.include_router(alerts.router)
     _APP.include_router(radar.router)
     _APP.include_router(ai.router)
+    _APP.include_router(nodes.router)
     _APP.include_router(websocket.router)
 
     @_APP.get("/api/v1/health")
@@ -234,6 +237,7 @@ def create_app() -> FastAPI:
             scenario_ai_radar_vehicle,
             scenario_ai_hotspot,
             scenario_ai_production,
+            scenario_ai_node_health,
             reset_all,
         )
         scenarios = {
@@ -258,6 +262,9 @@ def create_app() -> FastAPI:
             "scenario_ai_hotspot": scenario_ai_hotspot,
             "production": scenario_ai_production,
             "scenario_ai_production": scenario_ai_production,
+            "node_health": scenario_ai_node_health,
+            "node_anomaly": scenario_ai_node_health,
+            "scenario_ai_node_health": scenario_ai_node_health,
         }
         fn = scenarios.get(scenario_name)
         if not fn:

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ShieldCheck, CloudFog, Radio, MapPin, TrendingUp } from 'lucide-react';
+import { ShieldCheck, CloudFog, Radio, MapPin, TrendingUp, Gauge } from 'lucide-react';
 import { useSystemStore } from '../../stores/systemStore';
 import { runScenario } from '../../api/client';
 
@@ -15,6 +15,7 @@ const AI_SCENARIO_INFO = {
   radar_vehicle: { label: 'Radar', Icon: Radio, desc: 'AI classifier: VEHICLE', scenarioName: 'scenario_ai_radar_vehicle' },
   hotspot: { label: 'Hotspots', Icon: MapPin, desc: 'Historical high-risk zone', scenarioName: 'scenario_ai_hotspot' },
   production: { label: 'Forecast', Icon: TrendingUp, desc: 'Visibility reduces haul-cycle — estimate', scenarioName: 'scenario_ai_production' },
+  node_health: { label: 'Node', Icon: Gauge, desc: 'Node health AI: N-03 sensor abnormal — temp 68°C', scenarioName: 'scenario_ai_node_health' },
 };
 
 export default function Header() {

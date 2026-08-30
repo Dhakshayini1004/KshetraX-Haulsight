@@ -16,6 +16,13 @@ class VehicleStateStore:
 
     async def upsert(self, record: VehicleStateRecord) -> None:
         async with self._lock:
+            existing = self._vehicles.get(record.vehicle_id)
+            if existing is not None:
+                # Risk assessment is owned by the risk engine and recomputed on
+                # its own cadence. Telemetry/radar refreshes must not reset the
+                # latest risk result back to SAFE between engine ticks.
+                record.risk_level = existing.risk_level
+                record.risk_reason = existing.risk_reason
             self._vehicles[record.vehicle_id] = record
 
     async def get(self, vehicle_id: str) -> VehicleStateRecord | None:

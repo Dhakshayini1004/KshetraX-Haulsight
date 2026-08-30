@@ -68,3 +68,8 @@ export async function fetchRadarAI() {
   const res = await fetch(`${API_BASE}/api/v1/ai/radar`);
   return res.json();
 }
+
+export async function fetchNodeHealth() {
+  const res = await fetch(`${API_BASE}/api/v1/nodes/health`);
+  return res.json();
+}
