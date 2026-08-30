@@ -315,7 +315,7 @@ Built for **Smart India Hackathon 2026**
 | Mishree Kalaria|  |Electronics and Telecommunication Engineering (E&TC)|
 | Yash Rastogi |  | Electronics and Telecommunication Engineering (E&TC) |
 | Yash Pratap Singh |  | Electronics and Telecommunication Engineering (E&TC) |
-| Harman |  |Computer Science Engineering Student (CSE) |
+| Harman |  |Computer Science and Engineering  (CSE) |
 
 
 
