@@ -1,7 +1,7 @@
 let ws = null;
 let reconnectTimer = null;
 let listeners = [];
-
+// When will you do this :( :(
 const WS_URL = `ws://${window.location.host}/ws`; //Priyansha remove the current content inside the inverted commas, and paste the render backend deployed link in the inverted commas;
 
 export function connectWebSocket() {
