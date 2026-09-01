@@ -1,5 +1,5 @@
 //We hope Priyansha will Deploy one day
-const API_BASE = ''; //Priyansha paste the render backend deployed link in the inverted commas;
+const API_BASE = 'https://kshetrax.onrender.com'; //Priyansha paste the render backend deployed link in the inverted commas;
 
 export async function fetchVehicles() {
   const res = await fetch(`${API_BASE}/api/v1/vehicles`);
