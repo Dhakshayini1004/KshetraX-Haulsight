@@ -2,7 +2,7 @@ let ws = null;
 let reconnectTimer = null;
 let listeners = [];
 // When will you do this :( :(
-const WS_URL = `https://kshetrax.onrender.com`; //Priyansha remove the current content inside the inverted commas, and paste the render backend deployed link in the inverted commas;
+const WS_URL = `'wss://kshetrax.onrender.com/ws'`; //Priyansha remove the current content inside the inverted commas, and paste the render backend deployed link in the inverted commas;
 
 export function connectWebSocket() {
   if (ws && ws.readyState === WebSocket.OPEN) return;
