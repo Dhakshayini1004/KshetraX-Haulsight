@@ -15,7 +15,7 @@ export default function VehicleList() {
   const offline = vehicles.filter((v) => v.state === 'OFFLINE').length;
 
   return (
-    <div className="panel overflow-hidden">
+    <div className="panel panel-col h-full overflow-hidden">
       <div className="panel-header">
         <div className="flex items-center gap-2">
           <Truck size={15} className="text-brown/50" strokeWidth={1.75} />
@@ -28,9 +28,9 @@ export default function VehicleList() {
           <span className="status"><span className="dot dot--offline" />Offline {offline}</span>
         </div>
       </div>
-      <div className="max-h-[300px] overflow-y-auto">
+      <div className="panel-scrollable-body">
         {sorted.length === 0 ? (
-          <div className="panel-body text-center text-[12px] text-brown/40">No vehicles tracked</div>
+          <div className="text-center text-[12px] text-brown/40 py-4">No vehicles tracked</div>
         ) : (
           sorted.map((v) => <VehicleCard key={v.vehicle_id} vehicle={v} />)
         )}

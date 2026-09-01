@@ -26,7 +26,7 @@ export function RadarAIPanel() {
   ];
 
   return (
-    <div className="panel overflow-hidden">
+    <div className="panel panel-col h-full overflow-hidden">
       <div className="panel-header">
         <div className="flex items-center gap-2">
           <Radio size={15} className="text-brown/50" strokeWidth={1.75} />
@@ -35,7 +35,7 @@ export function RadarAIPanel() {
         <span className="text-[10px] uppercase tracking-wide text-brown/35">Model · Classifier v1</span>
       </div>
 
-      <div className="panel-body">
+      <div className="panel-scrollable-body">
         {!latest ? (
           <div className="text-[12px] text-brown/40">Waiting for radar detections…</div>
         ) : (
@@ -76,7 +76,7 @@ export function NodeHealthPanel() {
   const activeCount = anomalies.filter((a) => a.status === 'active').length;
 
   return (
-    <div className="panel panel-col overflow-hidden">
+    <div className="panel panel-col h-full overflow-hidden">
       <div className="panel-header">
         <div className="flex items-center gap-2">
           <Gauge size={15} className="text-brown/50" strokeWidth={1.75} />
@@ -157,7 +157,7 @@ export function ProductionPanel() {
   const ready = production.normal_cycle_min > 0;
 
   return (
-    <div className="panel overflow-hidden">
+    <div className="panel panel-col h-full overflow-hidden">
       <div className="panel-header">
         <div className="flex items-center gap-2">
           <TrendingUp size={15} className="text-brown/50" strokeWidth={1.75} />
@@ -165,7 +165,7 @@ export function ProductionPanel() {
         </div>
       </div>
 
-      <div className="panel-body">
+      <div className="panel-scrollable-body">
         {!ready ? (
           <div className="text-[12px] text-brown/40">Forecast pending…</div>
         ) : (

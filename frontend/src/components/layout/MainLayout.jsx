@@ -18,12 +18,22 @@ export default function MainLayout() {
       </div>
 
       {/* Right rail (secondary/tertiary, 42%) */}
-      <div className="w-[42%] p-3 pl-0 flex flex-col gap-3 min-w-0 overflow-y-auto">
-        <VehicleList />
-        <AlertPanel />
-        <RadarAIPanel />
-        <ProductionPanel />
-        <NodeHealthPanel />
+      <div className="w-[42%] p-3 pl-0 flex flex-col gap-3 min-w-0 min-h-0 overflow-hidden">
+        <div className="flex-[3] min-h-0">
+          <VehicleList />
+        </div>
+        <div className="flex-[1.5] min-h-0">
+          <AlertPanel />
+        </div>
+        <div className="flex-[2] min-h-0">
+          <RadarAIPanel />
+        </div>
+        <div className="flex-[2] min-h-0">
+          <ProductionPanel />
+        </div>
+        <div className="flex-[3.5] min-h-0">
+          <NodeHealthPanel />
+        </div>
       </div>
     </div>
   );

@@ -11,7 +11,7 @@ export default function AlertPanel() {
   });
 
   return (
-    <div className="panel panel-col overflow-hidden">
+    <div className="panel panel-col h-full overflow-hidden">
       <div className="panel-header">
         <div className="flex items-center gap-2">
           <Bell size={15} className="text-brown/50" strokeWidth={1.75} />
