@@ -56,6 +56,18 @@ body {
   padding: 12px 14px;
 }
 
+/* Panel variant with fixed header + independently scrollable body */
+.panel-col {
+  display: flex;
+  flex-direction: column;
+}
+.panel-scrollable-body {
+  padding: 12px 14px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
 /* Small muted metadata label */
 .meta-label {
   font-size: 11px;

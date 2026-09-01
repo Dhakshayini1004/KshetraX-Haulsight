@@ -76,7 +76,7 @@ export function NodeHealthPanel() {
   const activeCount = anomalies.filter((a) => a.status === 'active').length;
 
   return (
-    <div className="panel overflow-hidden">
+    <div className="panel panel-col overflow-hidden">
       <div className="panel-header">
         <div className="flex items-center gap-2">
           <Gauge size={15} className="text-brown/50" strokeWidth={1.75} />
@@ -88,7 +88,7 @@ export function NodeHealthPanel() {
         <span className="text-[10px] uppercase tracking-wide text-brown/35">Monitor</span>
       </div>
 
-      <div className="panel-body">
+      <div className="panel-scrollable-body">
         {nodeHealth.length === 0 ? (
           <div className="text-[12px] text-brown/40">Waiting for node telemetry…</div>
         ) : (

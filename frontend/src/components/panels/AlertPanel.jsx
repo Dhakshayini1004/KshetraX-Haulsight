@@ -11,7 +11,7 @@ export default function AlertPanel() {
   });
 
   return (
-    <div className="panel overflow-hidden">
+    <div className="panel panel-col overflow-hidden">
       <div className="panel-header">
         <div className="flex items-center gap-2">
           <Bell size={15} className="text-brown/50" strokeWidth={1.75} />
@@ -21,9 +21,9 @@ export default function AlertPanel() {
           )}
         </div>
       </div>
-      <div className="max-h-[320px] overflow-y-auto">
+      <div className="panel-scrollable-body">
         {sorted.length === 0 ? (
-          <div className="panel-body flex items-start gap-3 py-6">
+          <div className="flex items-start gap-3 py-6">
             <span className="w-9 h-9 shrink-0 flex items-center justify-center rounded-md bg-healthy/10 text-healthy">
               <ShieldCheck size={18} strokeWidth={1.75} />
             </span>
