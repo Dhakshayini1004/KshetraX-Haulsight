@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🏔️ HaulSight
+# 🏔️ KshetraX
 
 ### Smart Mine Vehicle Safety & Collision Risk Monitoring System
 
@@ -20,7 +20,7 @@
 
 In open-cast iron ore mines, dense fog severely limits visibility on haul roads. Drivers cannot see approaching vehicles, blind corners, or stopped hazards early enough. This leads to collisions, injuries, and operational downtime.
 
-**HaulSight** provides an additional safety layer by tracking equipped vehicles, modelling the mine's haul-road network, calculating collision risk in real time, and generating targeted warnings — even when GPS or network connectivity fails.
+**KshetraX** provides an additional safety layer by tracking equipped vehicles, modelling the mine's haul-road network, calculating collision risk in real time, and generating targeted warnings — even when GPS or network connectivity fails.
 
 ---
 
