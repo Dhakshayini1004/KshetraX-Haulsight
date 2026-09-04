@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🏔️ KshetraX
+# 🏔️ KshetraX - HaulSight
 
 ### Smart Mine Vehicle Safety & Collision Risk Monitoring System
 
