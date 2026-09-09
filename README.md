@@ -308,14 +308,14 @@ curl -X POST http://localhost:8000/api/v1/scenario/1
 
 Built for **Smart India Hackathon 2026**
 
-| Name | Role | Department |
-|------|------|-------------|
-| Priyansha Gour (Captain) |  |Electronics and Telecommunication Engineering (E&TC)|
-| Dhakshayini Usha R |  | Electronics and Telecommunication Engineering (E&TC) |
-| Mishree Kalaria|  |Electronics and Telecommunication Engineering (E&TC)|
-| Yash Rastogi |  | Electronics and Telecommunication Engineering (E&TC) |
-| Yash Pratap Singh |  | Electronics and Telecommunication Engineering (E&TC) |
-| Harman |  |Computer Science and Engineering  (CSE) |
+| Name | Department |
+|------|-------------|
+| Priyansha Gour (Captain) | Electronics and Telecommunication Engineering (E&TC)|
+| Dhakshayini Usha R | Electronics and Telecommunication Engineering (E&TC) |
+| Mishree Kalaria| Electronics and Telecommunication Engineering (E&TC)|
+| Yash Rastogi |  Electronics and Telecommunication Engineering (E&TC) |
+| Yash Pratap Singh |  Electronics and Telecommunication Engineering (E&TC) |
+| Harman | Computer Science and Engineering  (CSE) |
 
 
 
