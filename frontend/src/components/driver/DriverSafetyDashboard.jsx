@@ -10,7 +10,6 @@ const STATUS_STYLES = {
   SAFE: 'border-healthy/30 bg-healthy/10 text-healthy',
 };
 
-const SEVERITY_ORDER = { CAUTION: 1, WARNING: 2, CRITICAL: 3 };
 const EARTH_RADIUS_METERS = 6371000;
 
 function toRadians(degrees) {
@@ -61,6 +60,11 @@ function hasValidPosition(vehicle) {
     Math.abs(vehicle.longitude) <= 180;
 }
 
+function isCurrentVehicle(vehicle) {
+  const state = vehicle.state?.toUpperCase();
+  return state !== 'STALE' && state !== 'OFFLINE';
+}
+
 function formatDistance(distanceMeters) {
   return distanceMeters < 1000
     ? `${Math.round(distanceMeters)} m`
@@ -74,21 +78,59 @@ export default function DriverSafetyDashboard() {
 
   const selectedVehicle =
     vehicles.find((vehicle) => vehicle.vehicle_id === selectedVehicleId) || vehicles[0];
-  const activeAlert = selectedVehicle
+  const closestAlertPair = selectedVehicle &&
+    hasValidPosition(selectedVehicle) &&
+    isCurrentVehicle(selectedVehicle)
     ? activeAlerts
-        .filter((alert) => alert.vehicle_ids?.includes(selectedVehicle.vehicle_id))
-        .reduce((highest, alert) => (
-          !highest || (SEVERITY_ORDER[alert.severity] || 0) > (SEVERITY_ORDER[highest.severity] || 0)
-            ? alert
-            : highest
+        .flatMap((alert) => (
+          alert.vehicle_ids?.includes(selectedVehicle.vehicle_id)
+            ? alert.vehicle_ids
+                .filter((vehicleId) => vehicleId !== selectedVehicle.vehicle_id)
+                .map((vehicleId) => ({
+                  alert,
+                  vehicle: vehicles.find((candidate) =>
+                    candidate.vehicle_id === vehicleId &&
+                    isCurrentVehicle(candidate) &&
+                    hasValidPosition(candidate),
+                  ),
+                }))
+            : []
+        ))
+        .filter((pair) => pair.vehicle)
+        .map((pair) => ({
+          ...pair,
+          distanceMeters: getDistanceMeters(selectedVehicle, pair.vehicle),
+        }))
+        .reduce((closest, candidate) => (
+          !closest || candidate.distanceMeters < closest.distanceMeters ? candidate : closest
         ), null)
     : null;
-  const status = activeAlert?.severity || 'SAFE';
-  const otherVehicleId = activeAlert?.vehicle_ids?.find(
-    (vehicleId) => vehicleId !== selectedVehicle?.vehicle_id,
+  const closestVehicle = !closestAlertPair &&
+    selectedVehicle &&
+    hasValidPosition(selectedVehicle) &&
+    isCurrentVehicle(selectedVehicle)
+    ? vehicles
+        .filter((vehicle) =>
+          vehicle.vehicle_id !== selectedVehicle.vehicle_id &&
+          isCurrentVehicle(vehicle) &&
+          hasValidPosition(vehicle),
+        )
+        .map((vehicle) => ({
+          vehicle,
+          distanceMeters: getDistanceMeters(selectedVehicle, vehicle),
+        }))
+        .reduce((closest, candidate) => (
+          !closest || candidate.distanceMeters < closest.distanceMeters ? candidate : closest
+        ), null)
+    : null;
+  const activeAlert = closestAlertPair?.alert || null;
+  const otherVehicle = closestAlertPair?.vehicle || (
+    closestVehicle?.distanceMeters <= 20 ? closestVehicle.vehicle : null
   );
-  const otherVehicle = vehicles.find((vehicle) => vehicle.vehicle_id === otherVehicleId);
+  const otherVehicleId = otherVehicle?.vehicle_id;
   const hasRelevantPositions = selectedVehicle && otherVehicle &&
+    isCurrentVehicle(selectedVehicle) &&
+    isCurrentVehicle(otherVehicle) &&
     hasValidPosition(selectedVehicle) &&
     hasValidPosition(otherVehicle);
   const hasValidHeading = hasRelevantPositions &&
@@ -98,9 +140,19 @@ export default function DriverSafetyDashboard() {
   const distanceMeters = hasRelevantPositions
     ? getDistanceMeters(selectedVehicle, otherVehicle)
     : null;
+  const status = Number.isFinite(distanceMeters)
+    ? distanceMeters <= 10
+      ? 'CRITICAL'
+      : distanceMeters <= 20
+        ? 'WARNING'
+        : 'SAFE'
+    : 'SAFE';
   const direction = hasValidHeading && distanceMeters > 0
     ? getRelativeDirection(getBearingDegrees(selectedVehicle, otherVehicle), selectedVehicle.heading)
     : null;
+  const driverFocusSegmentIds = otherVehicle
+    ? [selectedVehicle?.current_segment, otherVehicle?.current_segment].filter((segmentId) => Boolean(segmentId))
+    : [];
 
   return (
     <main className="flex flex-1 min-h-0 flex-col gap-4 p-4 md:p-6">
@@ -139,7 +191,12 @@ export default function DriverSafetyDashboard() {
         aria-label="Mine map"
       >
         <div className="h-full w-full">
-          <MineMap />
+          <MineMap
+            myVehicleId={selectedVehicle?.vehicle_id || null}
+            conflictVehicleId={otherVehicleId || null}
+            conflictSeverity={otherVehicleId ? status : null}
+            highlightSegmentIds={driverFocusSegmentIds}
+          />
         </div>
       </section>
 
@@ -151,16 +208,22 @@ export default function DriverSafetyDashboard() {
         <span className="font-bold tracking-wide">
           {selectedVehicle ? status : 'WAITING FOR VEHICLE'}
         </span>
-        {selectedVehicle && !activeAlert && (
-          <span className="text-sm">No active collision risk</span>
+        {selectedVehicle && Number.isFinite(distanceMeters) && status === 'SAFE' && (
+          <span className="text-sm">No immediate collision risk</span>
         )}
-        {selectedVehicle && activeAlert && (
+        {selectedVehicle && Number.isFinite(distanceMeters) && status === 'WARNING' && (
           <span className="text-sm">
-            {Number.isFinite(distanceMeters)
-              ? `Vehicle ${otherVehicleId} · ${formatDistance(distanceMeters)} · ${direction || 'Direction unavailable'}`
-              : otherVehicleId
-                ? `Vehicle ${otherVehicleId} · Vehicle data unavailable`
-                : 'Vehicle data unavailable'}
+            Vehicle {otherVehicleId} · {formatDistance(distanceMeters)} · {direction || 'Direction unavailable'} · Maintain safe separation
+          </span>
+        )}
+        {selectedVehicle && Number.isFinite(distanceMeters) && status === 'CRITICAL' && (
+          <span className="text-sm">
+            Vehicle {otherVehicleId} · {formatDistance(distanceMeters)} · {direction || 'Direction unavailable'} · Immediate collision risk — reduce speed
+          </span>
+        )}
+        {selectedVehicle && !Number.isFinite(distanceMeters) && (
+          <span className="text-sm">
+            {activeAlert ? 'Vehicle data unavailable' : 'No immediate collision risk'}
           </span>
         )}
       </footer>
