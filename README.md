@@ -32,7 +32,7 @@ In open-cast iron ore mines, dense fog severely limits visibility on haul roads.
 ├──────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  ┌─────────────┐    ┌──────────────┐    ┌───────────────────── ┐ │
-│  │   Vehicle   │───▶│   Roadside   │───▶│   Control Room       │ │
+│  │   Vehicle   │───▶│   Roadside  │───▶│   Control Room       │ │
 │  │   Unit      │LoRa│   Gateway    │API │   Backend            │ │
 │  │  (GPS+IMU)  │    │  (ESP32)     │    │  (FastAPI+SQLite)    │ │
 │  └─────────────┘    └──────────────┘    └───────── ┬───────────┘ │
@@ -45,9 +45,9 @@ In open-cast iron ore mines, dense fog severely limits visibility on haul roads.
 │                              │      Dashboard              │   │ │
 │                              │  (React + Leaflet + Tailwind│   │ │
 │                              └─────────────────────────────┘   │ │
-│                                                                  │
-│  ┌──────────────────────────────────────────────────────────┐    │
-│  │          Independent Radar Fallback (LoRa-free)          │    │
+│                                                                | │
+│  ┌──────────────────────────────────────────────────────────┐  | │
+│  │          Independent Radar Fallback (LoRa-free)          │<─| │
 │  │    Blind Corner Beacons → Local Visual + Audible Alert   │    │
 │  └──────────────────────────────────────────────────────────┘    │
 └──────────────────────────────────────────────────────────────────┘
@@ -57,17 +57,18 @@ In open-cast iron ore mines, dense fog severely limits visibility on haul roads.
 
 ## ✨ Features
 
-| Feature | Description |
-|---------|-------------|
-| 🗺️ **Live Mine Map** | Interactive Leaflet map showing haul roads, blind corners, and vehicle positions |
-| 🚛 **Vehicle Tracking** | Real-time position, speed, heading, and status for all equipped vehicles |
-| ⚠️ **Collision Risk Engine** | Deterministic pairwise evaluation using TTC (time-to-conflict) and closing distance |
-| 🔔 **Targeted Alerts** | Alerts identify specific vehicle pairs and explain WHY a risk was generated |
-| 📡 **Radar Fallback** | Independent radar beacons at blind corners detect non-equipped vehicles |
-| 📉 **State Machine** | Vehicles transition through LIVE → STALE → OFFLINE with configurable thresholds |
-| 🔄 **Anti-Oscillation** | Hysteresis and debouncing prevent rapid SAFE↔WARNING flickering |
-| 🎮 **Demo Scenarios** | 3 scripted scenarios for live demonstration |
-| ⚙️ **Configurable** | All thresholds tunable via YAML config file |
+
+| Feature                       | Description                                                                                                                     |
+|:------------------------------|:--------------------------------------------------------------------------------------------------------------------------------|
+| **Live Mine Map**             | Interactive Leaflet map displaying haul roads, blind corners, and real-time vehicle positions.                                  |
+| **Vehicle Tracking**          | Real-time tracking of vehicle position, speed, heading, and operational status.                                                 |
+| **Collision Risk Engine**     | Deterministic pairwise risk evaluation using Time-to-Conflict (TTC) and closing-distance metrics.                               |
+| **Targeted Alerts**           | Identifies the specific vehicle pair involved and explains the reason behind each generated risk alert.                         |
+| **Radar Fallback**            | Independent radar beacons at blind corners detect nearby non-equipped vehicles.                                                 |
+| **State Machine**             | Manages vehicle connectivity through `LIVE → STALE → OFFLINE` states using configurable thresholds.                             |
+| **Anti-Oscillation**          | Hysteresis and debouncing prevent rapid `SAFE ↔ WARNING` state transitions.                                                     |
+| **Demo Scenarios**            | Three scripted scenarios demonstrate normal operation, collision-risk detection, and radar-based fallback detection.            |
+| **Configurable**              | YAML-based configuration allows detection thresholds, timing parameters, and system settings to be adjusted easily.             |
 
 ---
 
@@ -117,12 +118,12 @@ Dashboard runs at **http://localhost:5173**
 
 Once both servers are running, open the dashboard and use the scenario buttons in the header:
 
-| Button | Scenario | What Happens |
-|--------|----------|--------------|
-| **Scenario 1** | Normal Operation | Two vehicles approach a blind corner, risk escalates SAFE → CAUTION → WARNING → CRITICAL |
-| **Scenario 2** | Network Failure | Gateway connectivity drops, dashboard shows degraded state, radar continues working |
-| **Scenario 3** | Non-Equipped Vehicle | Radar detects an unknown vehicle at a blind corner, generates local warning |
-| **Reset** | Restore Normal | All systems return to normal operation |
+| Button         | Scenario             | What Happens                                                                             |
+|----------------|----------------------|------------------------------------------------------------------------------------------|
+| **Scenario 1** | Normal Operation     | Two vehicles approach a blind corner, risk escalates SAFE → CAUTION → WARNING → CRITICAL |
+| **Scenario 2** | Network Failure      | Gateway connectivity drops, dashboard shows degraded state, radar continues working      |
+| **Scenario 3** | Non-Equipped Vehicle | Radar detects an unknown vehicle at a blind corner, generates local warning              |
+| **Reset**      | Restore Normal       | All systems return to normal operation                                                   |
 
 ---
 
@@ -228,30 +229,30 @@ Every alert includes a human-readable reason explaining the risk.
 
 ## 🔌 API Endpoints
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/v1/telemetry` | Ingest vehicle telemetry |
-| `GET` | `/api/v1/vehicles` | List all vehicles with live state |
-| `GET` | `/api/v1/roads` | Full road graph |
-| `GET` | `/api/v1/alerts` | Active alerts |
-| `GET` | `/api/v1/alerts/history` | Alert history |
-| `GET` | `/api/v1/radar/beacons` | Radar beacon status |
-| `POST` | `/api/v1/radar/detections` | Report radar detection |
-| `POST` | `/api/v1/scenario/{name}` | Trigger demo scenario |
-| `GET` | `/api/v1/health` | System health |
-| `WS` | `/ws` | Real-time updates |
+| Method | Endpoint                   | Description                       |
+|--------|----------------------------|-----------------------------------|
+| `POST` | `/api/v1/telemetry`        | Ingest vehicle telemetry          |
+| `GET`  | `/api/v1/vehicles`         | List all vehicles with live state |
+| `GET`  | `/api/v1/roads`            | Full road graph                   |
+| `GET`  | `/api/v1/alerts`           | Active alerts                     |
+| `GET`  | `/api/v1/alerts/history`   | Alert history                     |
+| `GET`  | `/api/v1/radar/beacons`    | Radar beacon status               |
+| `POST` | `/api/v1/radar/detections` | Report radar detection            |
+| `POST` | `/api/v1/scenario/{name}`  | Trigger demo scenario             |
+| `GET`  | `/api/v1/health`           | System health                     |
+| `WS`   | `/ws`                      | Real-time updates                 |
 
 ---
 
 ## 🎨 Design System
 
-| Color | Hex | Usage |
-|-------|-----|-------|
+| Color        | Hex       | Usage                             |
+|--------------|-----------|-----------------------------------|
 | Primary Blue | `#2FA4D7` | Actions, normal states, SAFE risk |
-| Warm Cream | `#F5E9D8` | Backgrounds, surfaces |
-| Dark Brown | `#3E2C23` | Text, structural elements |
-| Orange | `#E76F2E` | Warnings, CAUTION risk |
-| Red | `#DC2626` | CRITICAL risk |
+| Warm Cream   | `#F5E9D8` | Backgrounds, surfaces             |
+| Dark Brown   | `#3E2C23` | Text, structural elements         |
+| Orange       | `#E76F2E` | Warnings, CAUTION risk            |
+| Red          | `#DC2626` | CRITICAL risk                     |
 
 Risk badges maintain semantic meaning regardless of theme.
 
@@ -259,15 +260,15 @@ Risk badges maintain semantic meaning regardless of theme.
 
 ## 🔧 Tech Stack
 
-| Layer | Technology |
-|-------|------------|
-| Frontend | React 19, Vite 8, Tailwind CSS 4, Zustand |
-| Map | React-Leaflet + OpenStreetMap |
-| Backend | Python 3.11+, FastAPI, aiosqlite |
-| Database | SQLite |
-| Real-time | WebSocket (FastAPI native) |
-| Communication | REST + WebSocket |
-| Hardware Interface | Modular telemetry API (LoRa/ESP32 ready) |
+| Layer              | Technology                                      |
+|--------------------|-------------------------------------------------|
+| Frontend           | React 19, Vite 8, Tailwind CSS 4, Zustand       |
+| Map                | React-Leaflet + OpenStreetMap                   |
+| Backend            | Python 3.11+, FastAPI, aiosqlite                |
+| Database           | SQLite                                          |
+| Real-time          | WebSocket (FastAPI native)                      |
+| Communication      | REST + WebSocket                                |
+| Hardware Interface | Modular telemetry API (LoRa/ESP32 ready)        |
 
 ---
 
@@ -308,14 +309,14 @@ curl -X POST http://localhost:8000/api/v1/scenario/1
 
 Built for **Smart India Hackathon 2026**
 
-| Name | Department |
-|------|-------------|
-| Priyansha Gour (Captain) | Electronics and Telecommunication Engineering (E&TC)|
-| Dhakshayini Usha R | Electronics and Telecommunication Engineering (E&TC) |
-| Mishree Kalaria| Electronics and Telecommunication Engineering (E&TC)|
-| Yash Rastogi |  Electronics and Telecommunication Engineering (E&TC) |
-| Yash Pratap Singh |  Electronics and Telecommunication Engineering (E&TC) |
-| Harman | Computer Science and Engineering  (CSE) |
+| Name                    | Department                                                   |
+|-------------------------|--------------------------------------------------------------|
+| Priyansha Gour (Captain)| Electronics and Telecommunication Engineering (E&TC)         |
+| Dhakshayini Usha R      | Electronics and Telecommunication Engineering (E&TC)         |
+| Mishree Kalaria         | Electronics and Telecommunication Engineering (E&TC)         |
+| Yash Rastogi            | Electronics and Telecommunication Engineering (E&TC)         |
+| Yash Pratap Singh       | Electronics and Telecommunication Engineering (E&TC)         |
+| Harman                  | Computer Science and Engineering (CSE)                       |
 
 
 
